@@ -8,8 +8,17 @@ import os
 import re
 
 
+def format_text(text):
+    """Replace Markdown bold and emphasis with HTML equivalents."""
+    # Replace **bold**
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Replace __emphasis__
+    text = re.sub(r'__(.+?)__', r'<em>\1</em>', text)
+    return text
+
+
 def convert_markdown_to_html(input_path, output_path):
-    """Converts Markdown to HTML: headings, unordered/ordered lists, paragraphs."""
+    """Converts Markdown to HTML: headings, lists, paragraphs, bold/emphasis."""
     with open(input_path, 'r') as f:
         lines = f.readlines()
 
@@ -18,13 +27,13 @@ def convert_markdown_to_html(input_path, output_path):
     paragraph_lines = []
 
     def flush_paragraph():
-        """Helper to flush paragraph block into HTML output."""
+        """Flush paragraph block into HTML output."""
         if paragraph_lines:
             html_lines.append("<p>")
             for i, pline in enumerate(paragraph_lines):
                 if i != 0:
                     html_lines.append("<br/>")
-                html_lines.append(pline)
+                html_lines.append(format_text(pline))
             html_lines.append("</p>")
             paragraph_lines.clear()
 
@@ -39,7 +48,7 @@ def convert_markdown_to_html(input_path, output_path):
                 html_lines.append(f"</{list_type}>")
                 list_type = None
             level = len(heading_match.group(1))
-            content = heading_match.group(2)
+            content = format_text(heading_match.group(2))
             html_lines.append(f"<h{level}>{content}</h{level}>")
             continue
 
@@ -53,7 +62,7 @@ def convert_markdown_to_html(input_path, output_path):
             if list_type != 'ul':
                 html_lines.append("<ul>")
                 list_type = 'ul'
-            item = ul_match.group(1)
+            item = format_text(ul_match.group(1))
             html_lines.append(f"<li>{item}</li>")
             continue
 
@@ -67,11 +76,11 @@ def convert_markdown_to_html(input_path, output_path):
             if list_type != 'ol':
                 html_lines.append("<ol>")
                 list_type = 'ol'
-            item = ol_match.group(1)
+            item = format_text(ol_match.group(1))
             html_lines.append(f"<li>{item}</li>")
             continue
 
-        # Empty line
+        # Empty line = block separation
         if line.strip() == '':
             if list_type:
                 html_lines.append(f"</{list_type}>")
@@ -79,7 +88,7 @@ def convert_markdown_to_html(input_path, output_path):
             flush_paragraph()
             continue
 
-        # Otherwise: paragraph content
+        # Otherwise: part of a paragraph
         paragraph_lines.append(line)
 
     # Final flush
