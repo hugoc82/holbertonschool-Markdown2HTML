@@ -9,47 +9,73 @@ import re
 
 
 def convert_markdown_to_html(input_path, output_path):
-    """Converts Markdown content to HTML (headings and unordered lists only)."""
+    """Converts Markdown to HTML (headings, unordered & ordered lists)."""
     with open(input_path, 'r') as f:
         lines = f.readlines()
 
     html_lines = []
-    in_list = False  # Flag to check if we're inside a <ul>
+    in_ul = False
+    in_ol = False
 
     for line in lines:
         line = line.rstrip()
 
-        # Check for headings
+        # Headings: #
         heading_match = re.match(r'^(#{1,6})\s+(.*)', line)
         if heading_match:
-            if in_list:
+            if in_ul:
                 html_lines.append("</ul>")
-                in_list = False
+                in_ul = False
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
             level = len(heading_match.group(1))
             content = heading_match.group(2)
             html_lines.append(f"<h{level}>{content}</h{level}>")
             continue
 
-        # Check for list items
-        list_match = re.match(r'^-\s+(.*)', line)
-        if list_match:
-            if not in_list:
+        # Unordered list: -
+        ul_match = re.match(r'^-\s+(.*)', line)
+        if ul_match:
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
+            if not in_ul:
                 html_lines.append("<ul>")
-                in_list = True
-            item = list_match.group(1)
+                in_ul = True
+            item = ul_match.group(1)
             html_lines.append(f"<li>{item}</li>")
             continue
 
-        # If line is empty or unrelated, and we were in a list, close it
-        if in_list and line == '':
-            html_lines.append("</ul>")
-            in_list = False
+        # Ordered list: *
+        ol_match = re.match(r'^\*\s+(.*)', line)
+        if ol_match:
+            if in_ul:
+                html_lines.append("</ul>")
+                in_ul = False
+            if not in_ol:
+                html_lines.append("<ol>")
+                in_ol = True
+            item = ol_match.group(1)
+            html_lines.append(f"<li>{item}</li>")
+            continue
+
+        # If line is empty or unrecognized and we're in a list, close it
+        if line == '':
+            if in_ul:
+                html_lines.append("</ul>")
+                in_ul = False
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
 
     # If file ends while in a list, close it
-    if in_list:
+    if in_ul:
         html_lines.append("</ul>")
+    if in_ol:
+        html_lines.append("</ol>")
 
-    # Write result to output file
+    # Write to output file
     with open(output_path, 'w') as f:
         for line in html_lines:
             f.write(line + "\n")
