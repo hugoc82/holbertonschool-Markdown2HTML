@@ -6,19 +6,37 @@ markdown2html module
 import sys
 import os
 import re
+import hashlib
 
 
 def format_text(text):
-    """Replace Markdown bold and emphasis with HTML equivalents."""
-    # Replace **bold**
+    """Replace Markdown bold, emphasis, md5 and c-removal with HTML or transformed content."""
+    # Replace [[text]] with md5
+    def md5_replacer(match):
+        content = match.group(1)
+        md5_hash = hashlib.md5(content.encode()).hexdigest()
+        return md5_hash
+
+    text = re.sub(r'\[\[(.+?)\]\]', md5_replacer, text)
+
+    # Replace ((text)) by removing all 'c' or 'C'
+    def remove_c_replacer(match):
+        content = match.group(1)
+        return re.sub(r'[cC]', '', content)
+
+    text = re.sub(r'\(\((.+?)\)\)', remove_c_replacer, text)
+
+    # Bold: **text**
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-    # Replace __emphasis__
+
+    # Emphasis: __text__
     text = re.sub(r'__(.+?)__', r'<em>\1</em>', text)
+
     return text
 
 
 def convert_markdown_to_html(input_path, output_path):
-    """Converts Markdown to HTML: headings, lists, paragraphs, bold/emphasis."""
+    """Converts Markdown to HTML: headings, lists, paragraphs, formatting."""
     with open(input_path, 'r') as f:
         lines = f.readlines()
 
@@ -80,7 +98,7 @@ def convert_markdown_to_html(input_path, output_path):
             html_lines.append(f"<li>{item}</li>")
             continue
 
-        # Empty line = block separation
+        # Empty line
         if line.strip() == '':
             if list_type:
                 html_lines.append(f"</{list_type}>")
@@ -88,7 +106,7 @@ def convert_markdown_to_html(input_path, output_path):
             flush_paragraph()
             continue
 
-        # Otherwise: part of a paragraph
+        # Otherwise: paragraph content
         paragraph_lines.append(line)
 
     # Final flush
