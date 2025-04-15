@@ -9,20 +9,32 @@ import re
 
 
 def convert_markdown_to_html(input_path, output_path):
-    """Converts Markdown to HTML: handles headings, unordered and ordered lists."""
+    """Converts Markdown to HTML: headings, unordered/ordered lists, paragraphs."""
     with open(input_path, 'r') as f:
         lines = f.readlines()
 
     html_lines = []
-    list_type = None  # can be 'ul' or 'ol'
+    list_type = None
+    paragraph_lines = []
+
+    def flush_paragraph():
+        """Helper to flush paragraph block into HTML output."""
+        if paragraph_lines:
+            html_lines.append("<p>")
+            for i, pline in enumerate(paragraph_lines):
+                if i != 0:
+                    html_lines.append("<br/>")
+                html_lines.append(pline)
+            html_lines.append("</p>")
+            paragraph_lines.clear()
 
     for line in lines:
         line = line.rstrip()
 
-        # Match heading
+        # Heading
         heading_match = re.match(r'^(#{1,6})\s+(.*)', line)
         if heading_match:
-            # Close open list
+            flush_paragraph()
             if list_type:
                 html_lines.append(f"</{list_type}>")
                 list_type = None
@@ -31,9 +43,10 @@ def convert_markdown_to_html(input_path, output_path):
             html_lines.append(f"<h{level}>{content}</h{level}>")
             continue
 
-        # Match unordered list (-)
+        # Unordered list (-)
         ul_match = re.match(r'^-\s+(.*)', line)
         if ul_match:
+            flush_paragraph()
             if list_type == 'ol':
                 html_lines.append("</ol>")
                 list_type = None
@@ -44,9 +57,10 @@ def convert_markdown_to_html(input_path, output_path):
             html_lines.append(f"<li>{item}</li>")
             continue
 
-        # Match ordered list (*)
+        # Ordered list (*)
         ol_match = re.match(r'^\*\s+(.*)', line)
         if ol_match:
+            flush_paragraph()
             if list_type == 'ul':
                 html_lines.append("</ul>")
                 list_type = None
@@ -57,14 +71,21 @@ def convert_markdown_to_html(input_path, output_path):
             html_lines.append(f"<li>{item}</li>")
             continue
 
-        # Any other line or empty line ends a list
-        if list_type:
-            html_lines.append(f"</{list_type}>")
-            list_type = None
+        # Empty line
+        if line.strip() == '':
+            if list_type:
+                html_lines.append(f"</{list_type}>")
+                list_type = None
+            flush_paragraph()
+            continue
 
-    # Close list at EOF if needed
+        # Otherwise: paragraph content
+        paragraph_lines.append(line)
+
+    # Final flush
     if list_type:
         html_lines.append(f"</{list_type}>")
+    flush_paragraph()
 
     # Write to output file
     with open(output_path, 'w') as f:
