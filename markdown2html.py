@@ -1,52 +1,97 @@
-Improve markdown2html.py by parsing paragraph syntax for generating HTML:
+#!/usr/bin/python3
+"""
+markdown2html module
+"""
 
-Syntax: (you can assume it will be strictly this syntax)
+import sys
+import os
+import re
 
-Markdown:
 
-Hello
+def convert_markdown_to_html(input_path, output_path):
+    """Converts Markdown to HTML (headings, unordered & ordered lists)."""
+    with open(input_path, 'r') as f:
+        lines = f.readlines()
 
-I'm a text
-with 2 lines
-HTML generated:
+    html_lines = []
+    in_ul = False
+    in_ol = False
 
-<p>
-    Hello
-</p>
-<p>
-    I'm a text
-        <br />
-    with 2 lines
-</p>
-guillaume@vagrant:~/$ cat README.md
-# My title
-- Hello
-- Bye
+    for line in lines:
+        line = line.rstrip()
 
-Hello
+        # Headings: #
+        heading_match = re.match(r'^(#{1,6})\s+(.*)', line)
+        if heading_match:
+            if in_ul:
+                html_lines.append("</ul>")
+                in_ul = False
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
+            level = len(heading_match.group(1))
+            content = heading_match.group(2)
+            html_lines.append(f"<h{level}>{content}</h{level}>")
+            continue
 
-I'm a text
-with 2 lines
+        # Unordered list: -
+        ul_match = re.match(r'^-\s+(.*)', line)
+        if ul_match:
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
+            if not in_ul:
+                html_lines.append("<ul>")
+                in_ul = True
+            item = ul_match.group(1)
+            html_lines.append(f"<li>{item}</li>")
+            continue
 
-guillaume@vagrant:~/$ ./markdown2html.py README.md README.html 
-guillaume@vagrant:~/$ cat README.html 
-<h1>My title</h1>
-<ul>
-<li>Hello</li>
-<li>Bye</li>
-</ul>
-<p>
-Hello
-</p>
-<p>
-I'm a text
-<br/>
-with 2 lines
-</p>
-guillaume@vagrant:~/$ 
-Spacing and new lines between HTML tags don’t need to be exactly this one
+        # Ordered list: *
+        ol_match = re.match(r'^\*\s+(.*)', line)
+        if ol_match:
+            if in_ul:
+                html_lines.append("</ul>")
+                in_ul = False
+            if not in_ol:
+                html_lines.append("<ol>")
+                in_ol = True
+            item = ol_match.group(1)
+            html_lines.append(f"<li>{item}</li>")
+            continue
 
-Repo:
+        # If line is empty or unrecognized and we're in a list, close it
+        if line == '':
+            if in_ul:
+                html_lines.append("</ul>")
+                in_ul = False
+            if in_ol:
+                html_lines.append("</ol>")
+                in_ol = False
 
-GitHub repository: holbertonschool-Markdown2HTML
-File: markdown2html.py
+    # If file ends while in a list, close it
+    if in_ul:
+        html_lines.append("</ul>")
+    if in_ol:
+        html_lines.append("</ol>")
+
+    # Write to output file
+    with open(output_path, 'w') as f:
+        for line in html_lines:
+            f.write(line + "\n")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        sys.stderr.write("Usage: ./markdown2html.py README.md README.html\n")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+
+    if not os.path.isfile(input_file):
+        sys.stderr.write(f"Missing {input_file}\n")
+        sys.exit(1)
+
+    convert_markdown_to_html(input_file, output_file)
+    sys.exit(0)
